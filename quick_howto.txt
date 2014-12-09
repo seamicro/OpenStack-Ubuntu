@@ -1,3 +1,61 @@
+HOW TO INSTALL OpenStack using JUJU/MAAS
+a. Set Server 0/0 Nic 0 as open, no vlan
+b. Set Server 0/0 Nic 1 on vlan 1000 Untagged
+c. Set server 1/0-63/0 Nic 0 on vlan 1000 Untagged
+d. Install Ubuntu 14.04 on 0/0
+e. apt-get update -y
+f. apt-get upgrade -y
+g. apt-get dist-upgrade -y
+h. Reboot
+i. apt-get install software-properties-common
+j. add-apt-repository ppa:maas-maintainers/testing (to get latest fixes we have submitted)
+k. apt install maas
+l. apt install juju
+m. apt install juju-deployer
+n. maas-region-admin createadmin
+o. maas-region-admin apikey --username root
+q. maas login maas http://<hostname>/MAAS/api/1.0 <MAAS API KEY>
+r. Setup ip forwarding
+
+	1. change ip forward to 1 instead of 0. Edit /etc/sysctl.conf and change ip_forward to 1, then run sysctl -p
+	2. iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+	3. iptables-save >/etc/iptables.rules
+	4.  In /etc/network/if-pre-up.d/iptables,put:
+
+
+	5.  	#!/bin/sh
+		iptables-restore < /etc/iptables.rules
+ 		exit 0
+
+	6. After, in /etc/network/if-post-down.d/iptables,put:
+		 #!/bin/sh
+ 		iptables-save -c > /etc/iptables.rules
+ 		if [ -f /etc/iptables.rules ]; then
+ 		iptables-restore < /etc/iptables.rules
+ 		fi
+ 		exit 0
+
+	7. After, give permission to the scripts:
+		 sudo chmod +x /etc/network/if-post-down.d/iptables
+		 sudo chmod +x /etc/network/if-pre-up.d/iptables
+s. ssh-keygen -t rsa; pub=$(cat /home/root/.ssh/id_rsa.pub); maas maas sshkeys new "key=${pub}"
+t. Add Second Interface(deploy network)
+	1. On Server 0/0:  Add eth1 interface to /etc/network/interfaces set to 10.0.0.1/24 network 
+	2. Login into MAAS Dashboard and Create eth1 interface as a managed interface for the default cluster controller (make the router ip 10.0.0.1)
+	3. service maas-dhcpd restart
+w. cd /etc/maas/templates/pxe/; sed -i '1s/^/SERIAL 0 9600\n/' *
+x. Add console=ttyS0,9600n8 under Global Parameters in MAAS UI settings dialog
+z. Add chassis nodes to MAAS
+	1. ping <chassis ip>; arp (get chassis mac address)
+	2. apt-get install python-pip -y; pip install python-seamicroclient --upgrade; uuid=$(maas maas node-groups list | grep uuid | cut -d'"' -f4)
+	3. maas maas node­group probe­and­enlist­hardware $uuid model=seamicro15k mac=<CHASSIS MACADDR> username=admin password=seamicro power_control=restapi2
+	4. maas maas nodes accept­all
+	5. Make sure to log in to the maas console and delete 0/0 from the list. 
+	6. Make sure to log in to the maas console and select all nodes and commission them. This will take about 1 hour to do.
+aa. Get environments.yaml from github.com/brentamd/myfiles and fill in the placeholders
+ab. Get seamicro_openstack.yaml from github.com/brentamd/myfiles and run juju-deploy -c seamicro_openstack.yaml -e maas to deploy openstack.
+
+
 When You have OpenStack up and running via juju you will need to:
 
 1. Set up External IP on OpenStack Dashboard
