@@ -1,0 +1,238 @@
+## THIS JUJU Charm Deploy file will build a small OpenStack Cloud on a Seamicro Chassis
+## It will install:
+##	All Core Services
+##	Basic CEPH Storage on 3 nodes
+##	Neutron Networking using GRE Tunneling
+##	Three Compute Nodes
+## 	Once installed, additional compute nodes can be added by doing
+##		juju add-unit nova-compute
+icehouse:
+  overrides:
+    openstack-origin: "cloud:trusty-icehouse"
+    source: "distro"
+  services:
+    ceph:
+      charm: "cs:trusty/ceph"
+      num_units: 3
+      options:
+        fsid: "9e7aac42-4bf4-11e3-b4b7-5254006a039c"
+        "monitor-secret": AQAAvoJSOAv/NRAAgvXP8d7iXN7lWYbvDZzm2Q==
+        "osd-devices": "/srv"
+        "osd-reformat": "yes"
+      annotations:
+        "gui-x": "2648.6688842773438"
+        "gui-y": "708.3873901367188"
+    keystone: 
+      charm: "cs:trusty/keystone"
+      num_units: 1
+      options: 
+        "admin-password": "seamicro"
+        "admin-token": "seamicro_openstack"
+      annotations:
+        "gui-x": "2013.905517578125"
+        "gui-y": "75.58013916015625"
+    "nova-compute":
+      charm: "cs:trusty/nova-compute"
+      num_units: 3
+      to: [ceph=0, ceph=1, ceph=2]
+      options:
+        "flat-interface": eth0
+      annotations:
+        "gui-x": "776.1040649414062"
+        "gui-y": "-81.22811031341553"
+    "neutron-gateway":
+      charm: "cs:trusty/quantum-gateway"
+      num_units: 1
+      options:
+        ext-port: eth7
+        instance-mtu: 1400
+      annotations:
+        "gui-x": "329.0572509765625"
+        "gui-y": "46.4658203125"
+    "nova-cloud-controller": 
+      charm: "cs:trusty/nova-cloud-controller"
+      num_units: 1
+      options: 
+        "network-manager": Neutron
+      annotations:
+        "gui-x": "1388.40185546875"
+        "gui-y": "-118.01156234741211"
+    rabbitmq: 
+      charm: "cs:trusty/rabbitmq-server"
+      num_units: 1
+      to: mysql
+      annotations:
+        "gui-x": "633.8120727539062"
+        "gui-y": "862.6530151367188"
+    glance: 
+      charm: "cs:trusty/glance"
+      num_units: 1
+      to: nova-cloud-controller
+      annotations:
+        "gui-x": "1147.3269653320312"
+        "gui-y": "1389.5643157958984"
+    cinder: 
+      charm: "cs:trusty/cinder"
+      num_units: 1
+      to: nova-cloud-controller
+      options: 
+        "block-device": none
+      annotations:
+        "gui-x": "1752.32568359375"
+        "gui-y": "1365.716194152832"
+    "ceph-radosgw":
+      charm: "cs:trusty/ceph-radosgw"
+      num_units: 1
+      to: nova-cloud-controller
+      annotations:
+        "gui-x": "2216.68212890625"
+        "gui-y": "697.16796875"
+    cinder-ceph:
+      charm: "cs:trusty/cinder-ceph"
+      num_units: 0
+      annotations:
+        "gui-x": "2257.5515747070312"
+        "gui-y": "1231.2130126953125"
+    "openstack-dashboard": 
+      charm: "cs:trusty/openstack-dashboard"
+      num_units: 1
+      options:
+        webroot: "/"
+        ubuntu-theme: "no"
+      annotations:
+        "gui-x": "2353.6898193359375"
+        "gui-y": "-94.2642593383789"
+    mysql: 
+      charm: "cs:trusty/mysql"
+      num_units: 1
+      annotations:
+        "gui-x": "364.4567565917969"
+        "gui-y": "1067.5167846679688"
+    mongodb:
+      charm: "cs:trusty/mongodb"
+      num_units: 1
+      annotations:
+        "gui-x": "-70.0399979352951"
+        "gui-y": "1282.8224487304688"
+    ceilometer:
+      charm: "cs:trusty/ceilometer"
+      num_units: 1
+      to: mongodb
+      annotations:
+        "gui-x": "-78.13333225250244"
+        "gui-y": "919.3128051757812"
+    ceilometer-agent:
+      charm: "cs:trusty/ceilometer-agent"
+      num_units: 0
+      annotations:
+        "gui-x": "-90.9158582687378"
+        "gui-y": "562.5347595214844"
+    heat:
+      charm: "cs:trusty/heat"
+      num_units: 1
+      to: mongodb
+      annotations:
+        "gui-x": "494.94012451171875"
+        "gui-y": "1363.6024169921875"
+    ntp:
+      charm: "cs:trusty/ntp"
+      num_units: 0
+      annotations:
+        "gui-x": "-104.57728099822998"
+        "gui-y": "294.6641273498535"
+  relations: 
+    - - "keystone:shared-db"
+      - "mysql:shared-db"
+    - - "nova-cloud-controller:shared-db"
+      - "mysql:shared-db"
+    - - "nova-cloud-controller:amqp"
+      - "rabbitmq:amqp"
+    - - "nova-cloud-controller:image-service"
+      - "glance:image-service"
+    - - "nova-cloud-controller:identity-service"
+      - "keystone:identity-service"
+    - - "glance:shared-db"
+      - "mysql:shared-db"
+    - - "glance:identity-service"
+      - "keystone:identity-service"
+    - - "cinder:shared-db"
+      - "mysql:shared-db"
+    - - "cinder:amqp"
+      - "rabbitmq:amqp"
+    - - "cinder:cinder-volume-service"
+      - "nova-cloud-controller:cinder-volume-service"
+    - - "cinder:identity-service"
+      - "keystone:identity-service"
+    - - "neutron-gateway:shared-db"
+      - "mysql:shared-db"
+    - - "neutron-gateway:amqp"
+      - "rabbitmq:amqp"
+    - - "neutron-gateway:quantum-network-service"
+      - "nova-cloud-controller:quantum-network-service"
+    - - "openstack-dashboard:identity-service"
+      - "keystone:identity-service"
+    - - "nova-compute:shared-db"
+      - "mysql:shared-db"
+    - - "nova-compute:amqp"
+      - "rabbitmq:amqp"
+    - - "nova-compute:image-service"
+      - "glance:image-service"
+    - - "nova-compute:cloud-compute"
+      - "nova-cloud-controller:cloud-compute"
+    - - "cinder:storage-backend"
+      - "cinder-ceph:storage-backend"
+    - - "ceph:client"
+      - "cinder-ceph:ceph"
+    - - "ceph:client"
+      - "nova-compute:ceph"
+    - - "ceph:client"
+      - "glance:ceph"
+    - - "ceilometer:identity-service"
+      - "keystone:identity-service"
+    - - "ceilometer:amqp"
+      - "rabbitmq:amqp"
+    - - "ceilometer:shared-db"
+      - "mongodb:database"
+    - - "ceilometer-agent:container"
+      - "nova-compute:juju-info"
+    - - "ceilometer-agent:ceilometer-service"
+      - "ceilometer:ceilometer-service"
+    - - "heat:shared-db"
+      - "mysql:shared-db"
+    - - "heat:identity-service"
+      - "keystone:identity-service"
+    - - "heat:amqp"
+      - "rabbitmq:amqp"
+    - - "ceph-radosgw:mon"
+      - "ceph:radosgw"
+    - - "ceph-radosgw:identity-service"
+      - "keystone:identity-service"
+    - - "ntp:juju-info"
+      - "neutron-gateway:juju-info"
+    - - "ntp:juju-info"
+      - "ceph:juju-info"
+    - - "ntp:juju-info"
+      - "keystone:juju-info"
+    - - "ntp:juju-info"
+      - "nova-compute:juju-info"
+    - - "ntp:juju-info"
+      - "nova-cloud-controller:juju-info"
+    - - "ntp:juju-info"
+      - "rabbitmq:juju-info"
+    - - "ntp:juju-info"
+      - "glance:juju-info"
+    - - "ntp:juju-info"
+      - "cinder:juju-info"
+    - - "ntp:juju-info"
+      - "ceph-radosgw:juju-info"
+    - - "ntp:juju-info"
+      - "openstack-dashboard:juju-info"
+    - - "ntp:juju-info"
+      - "mysql:juju-info"
+    - - "ntp:juju-info"
+      - "mongodb:juju-info"
+    - - "ntp:juju-info"
+      - "ceilometer:juju-info"
+    - - "ntp:juju-info"
+      - "heat:juju-info"
+  series: trusty

@@ -1,0 +1,7 @@
+environments:
+ maas:
+  type: 'maas'
+  maas-server: 'http://<MAASIP>:80/MAAS'
+  maas-oauth: '<KEY>'
+  admin-secret: seamicro
+  default-series: trusty

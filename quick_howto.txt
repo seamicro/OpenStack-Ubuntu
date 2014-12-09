@@ -1,0 +1,102 @@
+When You have OpenStack up and running via juju you will need to:
+
+1. Set up External IP on OpenStack Dashboard
+2. Create a Tenant and Tenant Admin
+3. We will create an external network
+4. Create a Tenant network
+5. Tie the tenant network and external network together
+6. Allow SSH and PING for demo default security group
+7. Upload Cloud Image to use for building instances.
+8. Create keypair for instance access
+9. Deploy Instance
+
+
+1. SETUP THE EXTERNAL STATIC IP ON THE OPENSTACK DASHBOARD NODE
+a. Log into your MAAS host and type juju ssh openstack-dashboard/0
+b. Edit /etc/networks/interfaces and find the line that says "iface eth1"
+c. Delete that line
+d. Add the following:
+	auto eth1
+	iface eth1 inet static
+	address EXTERNALSTATICIP
+	netmask NETMASK
+	gateway EXTERNALGATEWAY
+Note: Make sure this ip is not in one of your floating ip pools.
+
+2. CREATE TENANT & TENANT ADMIN USER
+a. Log into Dashboard as admin user and go to Project->Compute->Access & Security->API Access
+b. Click "Download OpenStack RC File" and then open the downloaded file so you can copy and paste.
+c. Log into your MAAS host and type juju ssh nova-cloud-controller/0
+d. Create a file called admin-rc.sh and paste the contents from the downloaded file from 1b.
+e. Then run "source admin-rc.sh". It will prompt you for the admin password, enter it.
+f. To create demo admin user do the following
+	i.	keystone user-create --name="demoadmin" --pass=seamicro --email=demoadmin@local.taz
+	ii. 	keystone tenant-create --name=demo --description="Demo Tenant"
+	iii. 	keystone user-role-add --user=demoadmin --role=ResellerAdmin --tenant=demo
+
+3. CREATE EXTERNAL NETWORK
+a. log into your MAAS host and type juju ssh nova-cloud-controller/0
+b. source admin-rc.sh
+c. neutron net-create ext-net --shared --router:external=True
+d. neutron subnet-create ext-net --name ext-subnet \
+  --allocation-pool start=FLOATING_IP_START,end=FLOATING_IP_END \
+  --disable-dhcp --gateway EXTERNAL_NETWORK_GATEWAY EXTERNAL_NETWORK_CIDR
+
+
+4. CREATE A TENANT NETWORK
+a. Log into Dashboard as demoadmin user and go to Project->Compute->Access & Security->API Access
+b. Click "Download OpenStack RC File" and then open the downloaded file so you can copy and paste.
+c. Log into your MAAS host and type juju ssh nova-cloud-controller/0
+d. Create a file called demo-rc.sh and paste the contents from the downloaded file from 1b.
+e. Then run "source demo-rc.sh". It will prompt you for the admin password, enter it.
+f. Run "neutron net-create demo-net"
+g. Create a private tenant subnet by running: 
+	neutron subnet-create demo-net --name demo-subnet --gateway 20.0.0.1 20.0.0.0/24
+
+5. TIE THE TENANT NETWORK AND THE EXTERNAL NETWORK TOGETHER
+a. Log into your MAAS host and type juju ssh nova-cloud-controller/0
+b. source demo-rc.sh
+c. neutron router-create demo-router
+d. neutron router-interface-add demo-router demo-subnet
+e. neutron router-gateway-set demo-router ext-net
+
+6. ALLOW SSH & PING ON DEMO NETWORKS
+a. Log into your MAAS host and type juju ssh nova-cloud-controller/0
+b. source demo-rc.sh
+c. nova secgroup-add-rule default icmp -1 -1 0.0.0.0/0
+d. nova secgroup-add-rule default tcp 22 22 0.0.0.0/0
+
+7. UPLOAD CLOUD IMAGE TO USE FOR BUILDING INSTANCES
+a. Log into your MAAS host and type juju ssh nova-cloud-controller/0
+b. source demo-rc.sh
+c. FOR CIRROS IMAGE
+glance image-create --name="cirros-0.3.3-x86_64" --disk-format=qcow2 \
+  --container-format=bare --is-public=true \
+  --copy-from http://cdn.download.cirros-cloud.net/0.3.3/cirros-0.3.3-x86_64-disk.img
+d. FOR UBUNTU 14.04 IMAGE
+glance image-create --name="ubuntu-14.04-x86_64" --disk-format=qcow2 \
+  --container-format=bare --is-public=true \
+  --copy-from http://uec-images.ubuntu.com/trusty/current/trusty-server-cloudimg-amd64-disk1.img
+
+8. CREATE KEYPAIR FOR INSTANCE ACCESS
+a. Log into your MAAS host and type juju ssh nova-cloud-controller/0
+b. source demo-rc.sh
+c. nova keypair-add KEY_NAME > MY_KEY.pem
+	ex. nova kepair-add demoadminkey > MY_KEY.pem
+d. chmod 600 MY_KEY.pem
+
+9. DEPLOY INSTANCE
+a. Log into your MAAS host and type juju ssh nova-cloud-controller/0
+b. source demo-rc.sh
+c. Get Network ID for demo network: neutron net-list | grep "demo-net"
+d. nova boot --flavor m1.tiny --image cirros-0.3.3-x86_64 --nic net-id=DEMO_NET_ID -security-group default --key-name KEY_NAME myinstance
+	ex. d. nova boot --flavor m1.tiny --image cirros-0.3.3-x86_64 --nic net-id=DEMO_NET_ID -security-group default --key-name demoadminkey myinstance
+e. Becuase of the use of private vlans for instance communication, you will need to associate a floating ip to the instance in order to access it
+f. Associate Floating IP:
+	i. neutron floatingip-create ext-net   (this will output the floating ip generated from the pool)
+	ii. neutron floating-ip-associate myinstance FLOATINGIP
+
+
+10. VERIFY CONNECTIVITY TO INSTANCE
+a. ssh cirros@FLOATINGIPADDRESS
+	password is cubswin:)
