@@ -3,7 +3,7 @@
 ##
 ## THIS JUJU Charm Deploy file will build a small OpenStack Cloud on a Seamicro Chassis
 ## It will install:
-## 	Openstack Icehouse with:
+##      Openstack Icehouse with:
 ##       All Core Services
 ##       Basic CEPH Storage on 3 nodes
 ##       Neutron Networking using GRE Tunneling
@@ -11,12 +11,12 @@
 ##
 ## Once installed, additional compute nodes can be added by doing
 ##              juju add-unit nova-compute
-## 
+##
 ##
 ## Original Version by Canonical for Orange Box Project
 ##
 ## Author: Brent Clements <brent.clements@amd.com>
-## Version: 1.9
+## Version: 1.10
 ##
 ##
 icehouse:
@@ -25,11 +25,11 @@ icehouse:
     source: "distro"
   services:
     ceph:
-      charm: "cs:trusty/ceph-27"
+      charm: "cs:trusty/ceph-28"
       num_units: 3
       options:
-        fsid: "2c9625f6-5338-438c-aaa2-64ee54384334"
-        "monitor-secret": "AQAAvoJSOAv/NRAAgvXP8d7iXN7lWYbvDZzm2Q=="
+        fsid: "9e7aac42-4bf4-11e3-b4b7-5254006a039c"
+        "monitor-secret": AQAAvoJSOAv/NRAAgvXP8d7iXN7lWYbvDZzm2Q==
         "osd-devices": "/srv"
         "osd-reformat": "yes"
       annotations:
@@ -40,7 +40,7 @@ icehouse:
       num_units: 1
       options: 
         "admin-password": "seamicro"
-        "admin-token": "seamicro_openstack"
+        "admin-token": "seamicro"
       annotations:
         "gui-x": "2013.905517578125"
         "gui-y": "75.58013916015625"
@@ -109,6 +109,7 @@ icehouse:
     "openstack-dashboard": 
       charm: "cs:trusty/openstack-dashboard-4"
       num_units: 1
+      to: "keystone"
       options:
         webroot: "/"
         ubuntu-theme: "no"
@@ -124,7 +125,7 @@ icehouse:
         "gui-x": "364.4567565917969"
         "gui-y": "1067.5167846679688"
     mongodb:
-      charm: "cs:trusty/mongodb-0"
+      branch: "lp:charms/mongodb"
       num_units: 1
       annotations:
         "gui-x": "-70.0399979352951"
